@@ -12,6 +12,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.FileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.SimpleLayout;
 
 /**
  * The purpose of this class is to read and merge financial transactions, and print a summary:
@@ -24,8 +29,20 @@ public class MergeTransactions {
 
 	private static DateFormat DATE_FORMAT = new SimpleDateFormat("dd-MM-yyyy");
 	private static NumberFormat CURRENCY_FORMAT = NumberFormat.getCurrencyInstance(Locale.getDefault());
+	private static Logger loggerFile = Logger.getLogger("FILE");
+	private static Logger loggerConsole = Logger.getLogger("TRANSACTIONS");
+	private static final Level logLevel = Level.DEBUG; 
 
 	public static void main(String[] args) {
+		loggerConsole.addAppender(new ConsoleAppender(new SimpleLayout()));
+		try {
+			loggerFile.addAppender(new FileAppender(new SimpleLayout(), "logs.txt", false));
+			loggerFile.addAppender(new ConsoleAppender(new SimpleLayout()));
+		} catch (IOException e) {
+			loggerConsole.fatal("Unable to initiate file logger, exiting.", e);
+		}
+		loggerConsole.setLevel(logLevel);
+		loggerFile.setLevel(logLevel);
 		List<Purchase> transactions = new ArrayList<Purchase>();
 		
 		// read data from 4 files
@@ -35,9 +52,9 @@ public class MergeTransactions {
 		readData("transactions4.csv",transactions);
 		
 		// print some info for the user
-		System.out.println("" + transactions.size() + " transactions imported");
-		System.out.println("total value: " + CURRENCY_FORMAT.format(computeTotalValue(transactions)));
-		System.out.println("max value: " + CURRENCY_FORMAT.format(computeMaxValue(transactions)));
+		loggerConsole.info("" + transactions.size() + " transactions imported");
+		loggerConsole.info("total value: " + CURRENCY_FORMAT.format(computeTotalValue(transactions)));
+		loggerConsole.info("max value: " + CURRENCY_FORMAT.format(computeMaxValue(transactions)));
 
 	}
 	
@@ -63,7 +80,7 @@ public class MergeTransactions {
 		File file = new File(fileName);
 		String line = null;
 		// print info for user
-		System.out.println("import data from " + fileName);
+		loggerFile.info("import data from " + fileName);
 		BufferedReader reader = null;
 		try {
 			reader = new BufferedReader(new FileReader(file));
@@ -76,34 +93,31 @@ public class MergeTransactions {
 				);
 				transactions.add(purchase);
 				// this is for debugging only
-				System.out.println("imported transaction " + purchase);
+				loggerFile.debug("imported transaction " + purchase);
 			} 
 		}
 		catch (FileNotFoundException x) {
 			// print warning
-			x.printStackTrace();
-			System.err.println("file " + fileName + " does not exist - skip");
+			loggerFile.warn("file " + fileName + " does not exist - skip", x);
 		}
 		catch (IOException x) {
 			// print error message and details
-			x.printStackTrace();
-			System.err.println("problem reading file " + fileName);
+			loggerFile.error("problem reading file " + fileName, x);
 		}
 		// happens if date parsing fails
 		catch (ParseException x) { 
 			// print error message and details
-			x.printStackTrace();
-			System.err.println("cannot parse date from string - please check whether syntax is correct: " + line);	
+			loggerFile.error("cannot parse date from string - please check whether syntax is correct: " + line, x);
 		}
 		// happens if double parsing fails
 		catch (NumberFormatException x) {
 			// print error message and details
-			System.err.println("cannot parse double from string - please check whether syntax is correct: " + line);	
+			loggerFile.error("cannot parse double from string - please check whether syntax is correct: " + line, x);
 		}
 		catch (Exception x) {
 			// any other exception 
 			// print error message and details
-			System.err.println("exception reading data from file " + fileName + ", line: " + line);	
+			loggerFile.error("exception reading data from file " + fileName + ", line: " + line, x);
 		}
 		finally {
 			try {
@@ -112,7 +126,7 @@ public class MergeTransactions {
 				}
 			} catch (IOException e) {
 				// print error message and details
-				System.err.println("cannot close reader used to access " + fileName);
+				loggerFile.error("cannot close reader used to access " + fileName, e);
 			}
 		}
 	}
